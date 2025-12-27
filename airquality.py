@@ -4,6 +4,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
 import altair as alt
+import pycountry
 #terminal setup
 pd.options.display.max_rows = 100
 pd.options.display.width = 0
@@ -12,8 +13,15 @@ alt.data_transformers.disable_max_rows()
 air = pd.read_csv("C:/Users/adamd/Documents/airquality.csv")
 #clean file
 air["timestamp"] = pd.to_datetime(air["timestamp"])
+def convert_country(code):
+    try:
+        return pycountry.countries.get(alpha_2=code).name
+    except:
+        return code
+air["country"] = air["country"].apply(convert_country)
 #streamlit settings
 st.set_page_config(layout="wide")
+apply_rolling = st.sidebar.checkbox("Apply Rolling Average (6‑hour)")
 #create filter lists
 ##country filter
 country_list = sorted(air["country"].unique())
@@ -29,6 +37,11 @@ if not selected_city or not selected_pollutant:
     st.stop()
 ### filtered dataset
 filt_air = air[(air["country"].isin(selected_country)) & (air["city"].isin(selected_city))]
+#smooth columns
+if apply_rolling:
+    filt_air[selected_pollutant] = (filt_air[selected_pollutant].rolling(window=6, min_periods=1).mean())
+
+
 #melted
 melted = filt_air.melt(id_vars=["timestamp", "country", "city"], value_vars=selected_pollutant,
                        var_name="pollutant", value_name="value")
