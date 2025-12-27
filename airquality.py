@@ -12,23 +12,32 @@ alt.data_transformers.disable_max_rows()
 air = pd.read_csv("C:/Users/adamd/Documents/airquality.csv")
 #clean file
 air["timestamp"] = pd.to_datetime(air["timestamp"])
+#streamlit settings
+st.set_page_config(layout="wide")
 #create filter lists
 ##country filter
 country_list = sorted(air["country"].unique())
-selected_country = st.sidebar.selectbox("Select Country", country_list)
+selected_country = st.sidebar.multiselect("Select Country", sorted(air["country"].unique()))
 ##city filter
-city_list = sorted(air[air["country"] == selected_country]["city"].unique())
-selected_city = st.sidebar.selectbox("select City", city_list)
+city_list = sorted(air[air["country"].isin(selected_country)]["city"].unique())
+selected_city = st.sidebar.multiselect("Select City", city_list)
 ##pollutant filter
 pollutants = ["pm25", "pm10", "no2", "so2", "o3", "co"]
-selected_pollutant =st.sidebar.selectbox("Select Pollutant", pollutants)
+selected_pollutant =st.sidebar.multiselect("Select Pollutant", ["pm25", "pm10", "no2", "so2", "o3", "co"])
+if not selected_city or not selected_pollutant:
+    st.warning("Please select a city or pollutant")
+    st.stop()
 ### filtered dataset
-filt_air = air[(air["country"] == selected_country) & (air["city"] == selected_city)]
-
+filt_air = air[(air["country"].isin(selected_country)) & (air["city"].isin(selected_city))]
+#melted
+melted = filt_air.melt(id_vars=["timestamp", "country", "city"], value_vars=selected_pollutant,
+                       var_name="pollutant", value_name="value")
 #create plots/tabs
 tab1, tab2 = st.tabs(["Pollutants over Time","somethingelse"])
 with tab1:
-    st.subheader(f"{selected_pollutant} over Time")
-    pollutant_chart = (alt.Chart(filt_air).mark_line().encode(x="timestamp:T",y=alt.Y(f"{selected_pollutant}:Q"), tooltip=["timestamp", "pm25"]).properties(width="container",height=400))
+    st.subheader(f"{'.'.join(selected_pollutant)} over Time")
+    pollutant_chart = (alt.Chart(melted).mark_line().encode(x="timestamp:T",y=alt.Y("value:Q"),color="city:N", strokeDash="pollutant:N",
+                            tooltip=["timestamp", "city", "pollutant","value"]).properties(width="container",height=700, title="Pollutant over Time"))
     st.altair_chart(pollutant_chart, use_container_width=True)
+
 
