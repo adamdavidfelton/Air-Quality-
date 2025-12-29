@@ -25,7 +25,7 @@ air["country"] = air["country"].apply(convert_country)
 #create filter lists
 ##country filter
 country_list = sorted(air["country"].unique())
-selected_country = st.sidebar.multiselect("Select Country", sorted(air["country"].unique()))
+selected_country = st.sidebar.multiselect("Select Country", country_list, default=country_list)
 ##city filter
 city_list = sorted(air[air["country"].isin(selected_country)]["city"].unique())
 selected_city = st.sidebar.multiselect("Select City", city_list)
@@ -33,7 +33,7 @@ selected_city = st.sidebar.multiselect("Select City", city_list)
 pollutants = ["pm25", "pm10", "no2", "so2", "o3", "co"]
 selected_pollutant =st.sidebar.multiselect("Select Pollutant", ["pm25", "pm10", "no2", "so2", "o3", "co"])
 if not selected_city or not selected_pollutant:
-    st.warning("Please select a city or pollutant")
+    st.warning("Please select a city and pollutant")
     st.stop()
 ### filtered dataset
 filt_air = air[(air["country"].isin(selected_country)) & (air["city"].isin(selected_city))]
@@ -83,4 +83,3 @@ with tab2:
         st.warning("No data available for the selected filters.")
     else:
         st.altair_chart(heatmap, width="stretch")
-
