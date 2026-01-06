@@ -4,11 +4,14 @@ import streamlit as st
 import pandas as pd
 import altair as alt
 import pycountry
+import plotly
 
-# Import your backend modules
+# Import backend modules
 from modules.load import load_data
 from modules.filter import get_latest_day
 from modules.metrics import compute_metrics
+from modules.metrics import compute_metrics
+from modules.filter import get_latest_day
 
 # Streamlit settings
 st.set_page_config(layout="wide")
@@ -16,9 +19,8 @@ pd.options.display.max_rows = 100
 pd.options.display.width = 0
 alt.data_transformers.disable_max_rows()
 
-# -----------------------------
+
 # LOAD & CLEAN DATA
-# -----------------------------
 air = load_data("data/airquality.csv")
 
 def convert_country(code):
@@ -28,10 +30,11 @@ def convert_country(code):
         return code
 
 air["country"] = air["country"].apply(convert_country)
+air_latest, latest_date = get_latest_day(air)
+metrics = compute_metrics(air_latest)
 
-# -----------------------------
+
 # SIDEBAR FILTERS
-# -----------------------------
 st.sidebar.header("Filters")
 
 # Country filter
@@ -53,18 +56,16 @@ if not selected_city or not selected_pollutant:
     st.warning("Please select a city and pollutant")
     st.stop()
 
-# -----------------------------
+
 # FILTER DATA
-# -----------------------------
 filt_air = air[
     (air["country"].isin(selected_country)) &
     (air["city"].isin(selected_city))]
 
 filt_air["hour"] = filt_air["timestamp"].dt.hour
 
-# -----------------------------
+
 # ROLLING WINDOW SMOOTHING
-# -----------------------------
 window = st.sidebar.slider("Rolling Window (hours)", 1, 48, 6)
 
 filt_air[selected_pollutant] = (
@@ -72,9 +73,8 @@ filt_air[selected_pollutant] = (
     .rolling(window=window, min_periods=1)
     .mean())
 
-# -----------------------------
+
 # MELT FOR ALTAIR
-# -----------------------------
 melted = filt_air.melt(
     id_vars=["timestamp", "country", "city"],
     value_vars=selected_pollutant,
@@ -91,16 +91,20 @@ hourly_avg = (
     melted_hour.groupby(["city", "hour", "pollutant"], as_index=False)["value"]
     .mean())
 
-# -----------------------------
+
 # HEADER + TABS
-# -----------------------------
 st.header("Air Quality Dashboard")
+# KPIS
+col1, col2, col3, col4 = st.columns(4)
+
+col1.metric("Avg PM2.5", f"{metrics['avg_pm25']:.2f}")
+col2.metric("Avg PM10", f"{metrics['avg_pm10']:.2f}")
+col3.metric("Avg NO2", f"{metrics['avg_no2']:.2f}")
+col4.metric("Avg SO2", f"{metrics['avg_so2']:.2f}")
 
 tab1, tab2 = st.tabs(["Pollutants over Time", "Pollution Heatmap"])
 
-# -----------------------------
 # TAB 1 — TIME SERIES
-# -----------------------------
 with tab1:
     st.subheader(f"{', '.join(selected_pollutant)} over Time")
 
@@ -125,9 +129,8 @@ with tab1:
 
     st.altair_chart(pollutant_facet, use_container_width=True)
 
-# -----------------------------
+
 # TAB 2 — HEATMAP
-# -----------------------------
 with tab2:
     if hourly_avg.empty:
         st.warning("No data available for the selected filters.")
